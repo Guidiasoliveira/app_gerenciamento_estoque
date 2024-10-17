@@ -1,54 +1,64 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>Sistema de Controle de Estoque</h1>
-
-{% if estoque_baixo %}
-    <div class="alert alert-danger">
-        <strong>Alerta!</strong> Os seguintes produtos estão com estoque baixo:
-        <ul>
-            {% for produto in estoque_baixo %}
-                <li>{{ produto.nome }} - Apenas {{ produto.quantidade }} em estoque!</li>
-            {% endfor %}
-        </ul>
-    </div>
-{% endif %}
-
-<h3>Produtos no Estoque:</h3>
+<h2>Produtos no Estoque:</h2>
 <table>
     <tr>
         <th>Nome</th>
         <th>Quantidade</th>
-        <th>Preço</th>
+        <th>Preço de Compra</th>
+        <th>Unidade de Medida</th>
+        <th>Ponto de Reposição</th>
+        <th>Localização</th>
     </tr>
     {% for produto in produtos %}
     <tr>
         <td>{{ produto.nome }}</td>
         <td>{{ produto.quantidade }}</td>
-        <td>R$ {{ produto.preco }}</td>
+        <td>R$ {{ produto.preco_compra }}</td>
+        <td>{{ produto.unidade_medida }}</td>
+        <td>{{ produto.ponto_reposicao }}</td>
+        <td>{{ produto.localizacao }}</td>
     </tr>
     {% endfor %}
 </table>
 
 <a href="{{ url_for('adicionar') }}">Adicionar Novo Produto</a>
+<a href="{{ url_for('relatorios') }}">Exportar Relatório para Excel</a>
 
-<h3>Gráfico de Quantidade de Produtos</h3>
-<canvas id="estoqueChart"></canvas>
-
+<!-- Gráfico -->
+<h3>Gráfico de Quantidade por Produto</h3>
+<canvas id="myChart" width="400" height="200"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    const ctx = document.getElementById('estoqueChart').getContext('2d');
-    const estoqueChart = new Chart(ctx, {
+    const data = {
+        labels: {{ categorias|tojson }},
+        datasets: [{
+            label: 'Quantidade de Produtos',
+            data: {{ quantidades|tojson }},
+            backgroundColor: [
+                'rgba(255, 99, 132, 0.2)',
+                'rgba(54, 162, 235, 0.2)',
+                'rgba(255, 206, 86, 0.2)',
+                'rgba(75, 192, 192, 0.2)',
+                'rgba(153, 102, 255, 0.2)',
+                'rgba(255, 159, 64, 0.2)'
+            ],
+            borderColor: [
+                'rgba(255, 99, 132, 1)',
+                'rgba(54, 162, 235, 1)',
+                'rgba(255, 206, 86, 1)',
+                'rgba(75, 192, 192, 1)',
+                'rgba(153, 102, 255, 1)',
+                'rgba(255, 159, 64, 1)'
+            ],
+            borderWidth: 1
+        }]
+    };
+
+    const config = {
         type: 'bar',
-        data: {
-            labels: {{ categorias|tojson }},
-            datasets: [{
-                label: 'Quantidade de Produtos',
-                data: {{ quantidades|tojson }},
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 1
-            }]
-        },
+        data: data,
         options: {
             scales: {
                 y: {
@@ -56,6 +66,11 @@
                 }
             }
         }
-    });
+    };
+
+    const myChart = new Chart(
+        document.getElementById('myChart'),
+        config
+    );
 </script>
 {% endblock %}

@@ -1,43 +1,66 @@
+from flask import Flask, render_template, request, redirect, url_for, send_file
+from models import db, Produto
 import os
-from flask import Flask, render_template, request, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
+import pandas as pd
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///estoque.db'
-db = SQLAlchemy(app)
 
-# Modelo de Produto
-class Produto(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
-    quantidade = db.Column(db.Integer, nullable=False)
-    preco = db.Column(db.Float, nullable=False)
+# Configuração do banco de dados
+project_dir = os.path.dirname(os.path.abspath(__file__))
+database_file = "sqlite:///{}".format(os.path.join(project_dir, "estoque.db"))
 
-# Rota principal - Página inicial
+app.config["SQLALCHEMY_DATABASE_URI"] = database_file
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db.init_app(app)
+
 @app.route('/')
 def index():
     produtos = Produto.query.all()
-    return render_template('index.html', produtos=produtos)
+    categorias = [produto.nome for produto in produtos]
+    quantidades = [produto.quantidade for produto in produtos]
+    return render_template('index.html', produtos=produtos, categorias=categorias, quantidades=quantidades)
 
-# Rota para adicionar produtos
 @app.route('/adicionar', methods=['GET', 'POST'])
 def adicionar():
     if request.method == 'POST':
         nome = request.form['nome']
+        preco_compra = request.form['preco_compra']
+        unidade_medida = request.form['unidade_medida']
+        ponto_reposicao = request.form['ponto_reposicao']
+        localizacao = request.form['localizacao']
         quantidade = request.form['quantidade']
-        preco = request.form['preco']
 
-        novo_produto = Produto(nome=nome, quantidade=int(quantidade), preco=float(preco))
+        novo_produto = Produto(
+            nome=nome,
+            preco_compra=float(preco_compra),
+            unidade_medida=unidade_medida,
+            ponto_reposicao=int(ponto_reposicao),
+            localizacao=localizacao,
+            quantidade=int(quantidade)
+        )
         db.session.add(novo_produto)
         db.session.commit()
-
         return redirect(url_for('index'))
-
     return render_template('adicionar.html')
 
-# Inicialização do banco de dados e definição da porta do Heroku
-if __name__ == "__main__":
+@app.route('/relatorios')
+def relatorios():
+    produtos = Produto.query.all()
+    data = {
+        "Nome": [produto.nome for produto in produtos],
+        "Quantidade": [produto.quantidade for produto in produtos],
+        "Preço de Compra": [produto.preco_compra for produto in produtos],
+        "Unidade de Medida": [produto.unidade_medida for produto in produtos],
+        "Ponto de Reposição": [produto.ponto_reposicao for produto in produtos],
+        "Localização": [produto.localizacao for produto in produtos]
+    }
+    df = pd.DataFrame(data)
+    excel_path = os.path.join(project_dir, 'estoque.xlsx')
+    df.to_excel(excel_path, index=False)
+    return send_file(excel_path, as_attachment=True)
+
+if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    port = int(os.environ.get("PORT", 5000))  # Heroku define a porta como uma variável de ambiente
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(debug=True)
